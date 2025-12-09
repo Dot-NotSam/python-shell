@@ -10,11 +10,16 @@ def main():
     sys.stdout.write("$ ")
     
     while True:
-        command = input()
-        if command == "exit":
-            break
-        print(f"{command}: command not found")
         sys.stdout.write("$ ")
+        sys.stdout.flush()
+
+        usr_input = input().split()
+        cmd = usr_input[0]
+        args = usr_input[1:]
+        if cmd in BUILTINS:
+            BUILTINS[cmd](*args)
+        else:
+            print(f"{cmd}: command not found")
 
 
 
