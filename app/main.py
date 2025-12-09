@@ -1,104 +1,73 @@
-import sys
-import os
-import subprocess
+import sys, os, shutil, shlex, subprocess
+
+# list can contain elements of multiple data types
+builtins: list = ["exit", "echo", "type", "pwd"]
+PATH = os.getenv("PATH", "")
+paths = PATH.split(":")
+HOME = os.getenv("HOME", "")
+
+
+def find_exec(cmd: str):
+    for path in paths:
+        full_path = f"{path}/{cmd}"
+        try:
+            with open(full_path):
+                # os.X_OK: Checks if the path is executable.
+                if os.access(full_path, os.X_OK):
+                    return full_path
+        except FileNotFoundError:
+            continue
+    return None
 
 
 def main():
-    # Uncomment this block to pass  the first stage
-    # sys.stdout.write("$ ")
-    builtin_cmds = {"exit", "echo", "type", "pwd", "cd"}
-
-    def find_exec(cmd):
-        # PATH navigation
-        # get PATH env var and split it
-        path_env = os.environ.get("PATH", "")
-        dirs = path_env.split(os.pathsep)
-        # search through each dir
-        for d in dirs:
-            full_path = os.path.join(d, cmd)
-            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
-                return full_path
-
-        return None
-
-    def echo(args):
-        return args
-
-    def type(args):
-        # built in
-        if args in builtin_cmds:
-            return f"{args} is a shell builtin"
-        elif full_path := find_exec(args):
-            return f"{args} is {full_path}"
-        else:
-            return f"{args}: not found"
-
-    # Wait for user input
     while True:
-        command = input("$ ")
-        parts = command.split(" ", 1)
-        cmd = parts[0]
-        args = parts[1] if len(parts) > 1 else ""
-
-        # Check for output redirection
-        output_file = None
-        if ">" in command:
-            # Split by > to separate command from redirection
-            cmd_part, redirect_part = command.split(">", 1)
-            # Handle both > and 1>
-            redirect_part = redirect_part.lstrip()
-            if redirect_part.startswith("1"):
-                redirect_part = redirect_part[1:].lstrip()
-            output_file = redirect_part.strip()
-            
-            # Re-parse the command part
-            parts = cmd_part.split(" ", 1)
-            cmd = parts[0]
-            args = parts[1] if len(parts) > 1 else ""
-
-        if cmd == "exit":
-            return
-        elif cmd == "echo":
-            output = echo(args)
-            if output_file:
-                with open(output_file, "w") as f:
-                    f.write(output + "\n")
-            else:
-                print(output)
-        elif cmd == "type":
-            output = type(args)
-            if output_file:
-                with open(output_file, "w") as f:
-                    f.write(output + "\n")
-            else:
-                print(output)
-        elif cmd == "pwd":
-            output = os.getcwd()
-            if output_file:
-                with open(output_file, "w") as f:
-                    f.write(output + "\n")
-            else:
-                print(output)
-        elif cmd == "cd":
-            # Handle ~ character
-            if args == "~":
-                args = os.environ.get("HOME", "")
-            
-            # Absolute Path or expanded path
-            if args:
-                try:
-                    os.chdir(args)
-                except FileNotFoundError:
-                    print(f"cd: {args}: No such file or directory")
-        # Custom Program
-        elif find_exec(cmd):  # Confirmed correct!
-            if output_file:
-                with open(output_file, "w") as f:
-                    subprocess.run([cmd] + cmd_part.split()[1:], stdout=f)
-            else:
-                subprocess.run([cmd] + command.split()[1:])
-        else:
-            print(f"{command}: command not found")
+        sys.stdout.write("$ ")
+        command_inp: str = input().strip()
+        # removes all leading and trailing whitespace characters, including spaces, tabs (\t), newlines (\n), and carriage returns (\r)
+        # reassigning the command variable
+        command: dict = {
+            "base": shlex.split(command_inp)[0],
+            "args": shlex.split(command_inp)[1:],
+        }
+        # print(shlex.split(command_inp))
+        if ">" in command_inp or "1>" in command_inp:
+            os.system(command_inp)
+            continue
+        match command["base"]:
+            case "exit":
+                exit()
+            case "echo":
+                # separator.join(iterable_of_strings)
+                print(" ".join(command["args"]))
+            case "type":
+                if command["args"][0] in builtins:
+                    print(f"{command["args"][0]} is a shell builtin")
+                # shutil.which() return the path to an executable which would be run if the given cmd was called. If no cmd would be called, return None.
+                elif path := shutil.which(command["args"][0]):
+                    print(f"{command["args"][0]} is {path}")
+                # path=shutil.which(command["args"][0])
+                # if path:
+                #     print(f"{command["args"][0]} is path")
+                else:
+                    print(f"{command["args"][0]}: not found")
+            case "pwd":
+                print(os.getcwd())
+            case "cd":
+                if command["args"][0] == "~":
+                    os.chdir(HOME)
+                # os.chdir("test_folder")
+                # os.path.isdir(directory_path)
+                elif os.path.isdir(command["args"][0]):
+                    os.chdir(command["args"][0])
+                else:
+                    print(f"cd: {command["args"][0]}: No such file or directory")
+            case _:
+                if path := find_exec(command["base"]):
+                    subprocess.run([command["base"]] + command["args"], executable=path)
+                else:
+                    print(f"{command['base']}: command not found")
+        pass
 
 
 if __name__ == "__main__":
