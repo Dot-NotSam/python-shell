@@ -1,37 +1,42 @@
-import sys
-import shutil
+import sys, os
 
-builtins: list = ["echo", "exit", "type"]
+SHELL_BUILTIN = ["echo", "exit", "type"]
+PATH = os.getenv("PATH", "")
+paths = PATH.split(":")
+
+
+def find_exec(cmd):
+    for path in paths:
+        full_path = f"{path}/{cmd}"
+        try:
+            with open(full_path):
+                if os.access(full_path, os.X_OK):
+                    return full_path
+        except FileNotFoundError:
+            continue
+    return None
 
 
 def main():
-    while True:
-        prompt: str = "$ "
-        sys.stdout.write(prompt)
-        command: str = input().strip()
-        command: dict = {
-            "base": command.split(" ")[0],
-            "arguments": command.split(" ")[1:],
-        }
-
-        match command["base"]:
-            case "exit":
-                exit()
-            case "echo":
-                print(" ".join(command["arguments"]))
-            case "type":
-                if command["arguments"][0] in builtins:
-                    print(f"{command['arguments'][0]} is a shell builtin")
-                elif path := shutil.which(command["arguments"][0]):
-                    print(f"{command['arguments'][0]} is {path}")
-                else:
-                    print(f"{command['arguments'][0]}: not found")
-
-            case "":
-                pass
-            case _:
-                print(f"{command['base']}: command not found")
+    sys.stdout.write("$ ")
+    command = input()
+    if command == "exit":
+        sys.exit()
+    elif command.split(" ")[0] == "echo":
+        print(command[5:])
+    elif command.split(" ")[0] == "type":
+        if command[5:] in SHELL_BUILTIN:
+            print(f"{command[5:]} is a shell builtin")
+        elif find_exec(command[5:]):
+            print(f"{command[5:]} is {find_exec(command[5:])}")
+        else:
+            print(f"{command[5:]}: not found")
+    elif find_exec(command.split(" ")[0]):
+        os.system(command)
+    else:
+        print(f"{command}: command not found")
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        main()
