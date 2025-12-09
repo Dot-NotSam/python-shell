@@ -1,5 +1,9 @@
 import sys
 
+BUILTINS = {
+    "exit": lambda code=0, *_: sys.exit(int(code)),
+    "echo": lambda *args: print(" ".join(args)),
+}
 
 def main():
     # TODO: Uncomment the code below to pass the first stage
