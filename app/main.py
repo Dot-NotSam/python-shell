@@ -3,6 +3,9 @@ import sys
 BUILTINS = {
     "exit": lambda code=0, *_: sys.exit(int(code)),
     "echo": lambda *args: print(" ".join(args)),
+    "type": lambda cmd=None, *_: print(
+        f"{cmd} is a shell builtin" if cmd in BUILTINS else f"{cmd}: not found"
+    ),
 }
 
 def main():
