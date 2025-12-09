@@ -1,47 +1,63 @@
-import sys
+﻿import sys
 import os
 import subprocess
-
-commands = {
-    "exit": lambda *args: sys.exit(int(args[0]) if args else 0),
-    "echo": lambda *args: print(" ".join(args)),
-    "type": lambda *args: check_command_type(args[0]) if args else None,
-    "pwd": lambda *args: print(os.getcwd()),
-}
+import shlex
 
 
-def check_command_type(command):
-    if command in commands:
-        print(f"{command} is a shell builtin")
-    else:
-        path_env = os.environ.get("PATH", "")
-        for path_dir in path_env.split(os.pathsep):
-            full_path = os.path.join(path_dir, command)
-            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
-                print(f"{command} is {full_path}")
-                return
-        print(f"{command}: not found")
+def find_executable(command):
+    for path in os.environ.get("PATH", "").split(os.pathsep):
+        full_path = os.path.join(path, command)
+        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+            return full_path
+    return None
 
 
 def main():
     while True:
-        sys.stdout.write("$ ")
-        sys.stdout.flush()
+        try:
+            sys.stdout.write("$ ")
+            sys.stdout.flush()
+            line = input()
+            if not line.strip():
+                continue
+            args = shlex.split(line)
+            command = args[0]
 
-        command_args = input().split()
-        command = command_args[0]
-
-        if command not in commands:
-            for path_dir in os.environ.get("PATH", "").split(os.pathsep):
-                full_path = os.path.join(path_dir, command)
-                if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
-                    subprocess.run(command_args)
-                    break
+            if command == "exit":
+                sys.exit(0)
+            elif command == "echo":
+                print(" ".join(args[1:]))
+            elif command == "type":
+                if len(args) < 2:
+                    continue
+                target = args[1]
+                # Check if it's a builtin first
+                builtins = ["echo", "exit", "type", "pwd", "cd"]
+                if target in builtins:
+                    print(f"{target} is a shell builtin")
+                else:
+                    full_path = find_executable(target)
+                    if full_path:
+                        print(full_path)
+                    else:
+                        print(f"{target}: not found")
+            elif command == "pwd":
+                print(os.getcwd())
+            elif command == "cd":
+                if len(args) > 1:
+                    try:
+                        os.chdir(args[1])
+                    except OSError:
+                        print(f"cd: {args[1]}: No such file or directory")
             else:
-                print(f"{command}: command not found")
-            continue
-
-        commands[command](*command_args[1:])
+                full_path = find_executable(command)
+                if full_path:
+                    # Use full_path to locate executable, but pass command name as argv[0]
+                    subprocess.run([command] + args[1:], executable=full_path)
+                else:
+                    print(f"{command}: command not found")
+        except EOFError:
+            break
 
 
 if __name__ == "__main__":
