@@ -1,42 +1,48 @@
-import sys, os
+import sys
+import os
+import subprocess
 
-SHELL_BUILTIN = ["echo", "exit", "type"]
-PATH = os.getenv("PATH", "")
-paths = PATH.split(":")
+commands = {
+    "exit": lambda *args: sys.exit(int(args[0]) if args else 0),
+    "echo": lambda *args: print(" ".join(args)),
+    "type": lambda *args: check_command_type(args[0]) if args else None,
+    "pwd": lambda *args: print(os.getcwd()),
+}
 
 
-def find_exec(cmd):
-    for path in paths:
-        full_path = f"{path}/{cmd}"
-        try:
-            with open(full_path):
-                if os.access(full_path, os.X_OK):
-                    return full_path
-        except FileNotFoundError:
-            continue
-    return None
+def check_command_type(command):
+    if command in commands:
+        print(f"{command} is a shell builtin")
+    else:
+        path_env = os.environ.get("PATH", "")
+        for path_dir in path_env.split(os.pathsep):
+            full_path = os.path.join(path_dir, command)
+            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                print(f"{command} is {full_path}")
+                return
+        print(f"{command}: not found")
 
 
 def main():
-    sys.stdout.write("$ ")
-    command = input()
-    if command == "exit":
-        sys.exit()
-    elif command.split(" ")[0] == "echo":
-        print(command[5:])
-    elif command.split(" ")[0] == "type":
-        if command[5:] in SHELL_BUILTIN:
-            print(f"{command[5:]} is a shell builtin")
-        elif find_exec(command[5:]):
-            print(f"{command[5:]} is {find_exec(command[5:])}")
-        else:
-            print(f"{command[5:]}: not found")
-    elif find_exec(command.split(" ")[0]):
-        os.system(command)
-    else:
-        print(f"{command}: command not found")
+    while True:
+        sys.stdout.write("$ ")
+        sys.stdout.flush()
+
+        command_args = input().split()
+        command = command_args[0]
+
+        if command not in commands:
+            for path_dir in os.environ.get("PATH", "").split(os.pathsep):
+                full_path = os.path.join(path_dir, command)
+                if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                    subprocess.run(command_args)
+                    break
+            else:
+                print(f"{command}: command not found")
+            continue
+
+        commands[command](*command_args[1:])
 
 
 if __name__ == "__main__":
-    while True:
-        main()
+    main()
