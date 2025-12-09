@@ -49,7 +49,11 @@ def main():
         elif cmd == "pwd":
             print(os.getcwd())
         elif cmd == "cd":
-            # Absolute Path
+            # Handle ~ character
+            if args == "~":
+                args = os.environ.get("HOME", "")
+            
+            # Absolute Path or expanded path
             if args:
                 try:
                     os.chdir(args)
