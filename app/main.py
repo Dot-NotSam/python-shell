@@ -40,14 +40,45 @@ def main():
         cmd = parts[0]
         args = parts[1] if len(parts) > 1 else ""
 
+        # Check for output redirection
+        output_file = None
+        if ">" in command:
+            # Split by > to separate command from redirection
+            cmd_part, redirect_part = command.split(">", 1)
+            # Handle both > and 1>
+            redirect_part = redirect_part.lstrip()
+            if redirect_part.startswith("1"):
+                redirect_part = redirect_part[1:].lstrip()
+            output_file = redirect_part.strip()
+            
+            # Re-parse the command part
+            parts = cmd_part.split(" ", 1)
+            cmd = parts[0]
+            args = parts[1] if len(parts) > 1 else ""
+
         if cmd == "exit":
             return
         elif cmd == "echo":
-            print(echo(args))
+            output = echo(args)
+            if output_file:
+                with open(output_file, "w") as f:
+                    f.write(output + "\n")
+            else:
+                print(output)
         elif cmd == "type":
-            print(type(args))
+            output = type(args)
+            if output_file:
+                with open(output_file, "w") as f:
+                    f.write(output + "\n")
+            else:
+                print(output)
         elif cmd == "pwd":
-            print(os.getcwd())
+            output = os.getcwd()
+            if output_file:
+                with open(output_file, "w") as f:
+                    f.write(output + "\n")
+            else:
+                print(output)
         elif cmd == "cd":
             # Handle ~ character
             if args == "~":
@@ -59,12 +90,13 @@ def main():
                     os.chdir(args)
                 except FileNotFoundError:
                     print(f"cd: {args}: No such file or directory")
-
-            # Relative Path
-            pass
         # Custom Program
         elif find_exec(cmd):  # Confirmed correct!
-            subprocess.run([cmd] + command.split()[1:])
+            if output_file:
+                with open(output_file, "w") as f:
+                    subprocess.run([cmd] + cmd_part.split()[1:], stdout=f)
+            else:
+                subprocess.run([cmd] + command.split()[1:])
         else:
             print(f"{command}: command not found")
 
