@@ -8,7 +8,11 @@ def main():
     command = input()
     print(f"{command}: command not found")
     
+    if(command == "exit"):
+        sys.exit()
     main()
+
+    exit
 
 
 
