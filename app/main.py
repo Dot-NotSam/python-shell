@@ -1,63 +1,68 @@
-﻿import sys
+import sys
 import os
 import subprocess
-import shlex
-
-
-def find_executable(command):
-    for path in os.environ.get("PATH", "").split(os.pathsep):
-        full_path = os.path.join(path, command)
-        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
-            return full_path
-    return None
 
 
 def main():
-    while True:
-        try:
-            sys.stdout.write("$ ")
-            sys.stdout.flush()
-            line = input()
-            if not line.strip():
-                continue
-            args = shlex.split(line)
-            command = args[0]
+    # Uncomment this block to pass  the first stage
+    # sys.stdout.write("$ ")
+    builtin_cmds = {"exit", "echo", "type", "pwd", "cd"}
 
-            if command == "exit":
-                sys.exit(0)
-            elif command == "echo":
-                print(" ".join(args[1:]))
-            elif command == "type":
-                if len(args) < 2:
-                    continue
-                target = args[1]
-                # Check if it's a builtin first
-                builtins = ["echo", "exit", "type", "pwd", "cd"]
-                if target in builtins:
-                    print(f"{target} is a shell builtin")
-                else:
-                    full_path = find_executable(target)
-                    if full_path:
-                        print(full_path)
-                    else:
-                        print(f"{target}: not found")
-            elif command == "pwd":
-                print(os.getcwd())
-            elif command == "cd":
-                if len(args) > 1:
-                    try:
-                        os.chdir(args[1])
-                    except OSError:
-                        print(f"cd: {args[1]}: No such file or directory")
-            else:
-                full_path = find_executable(command)
-                if full_path:
-                    # Use full_path to locate executable, but pass command name as argv[0]
-                    subprocess.run([command] + args[1:], executable=full_path)
-                else:
-                    print(f"{command}: command not found")
-        except EOFError:
-            break
+    def find_exec(cmd):
+        # PATH navigation
+        # get PATH env var and split it
+        path_env = os.environ.get("PATH", "")
+        dirs = path_env.split(os.pathsep)
+        # search through each dir
+        for d in dirs:
+            full_path = os.path.join(d, cmd)
+            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                return full_path
+
+        return None
+
+    def echo(args):
+        return args
+
+    def type(args):
+        # built in
+        if args in builtin_cmds:
+            return f"{args} is a shell builtin"
+        elif full_path := find_exec(args):
+            return f"{args} is {full_path}"
+        else:
+            return f"{args}: not found"
+
+    # Wait for user input
+    while True:
+        command = input("$ ")
+        parts = command.split(" ", 1)
+        cmd = parts[0]
+        args = parts[1] if len(parts) > 1 else ""
+
+        if cmd == "exit":
+            return
+        elif cmd == "echo":
+            print(echo(args))
+        elif cmd == "type":
+            print(type(args))
+        elif cmd == "pwd":
+            print(os.getcwd())
+        elif cmd == "cd":
+            # Absolute Path
+            if args:
+                try:
+                    os.chdir(args)
+                except FileNotFoundError:
+                    print(f"cd: {args}: No such file or directory")
+
+            # Relative Path
+            pass
+        # Custom Program
+        elif find_exec(cmd):  # Confirmed correct!
+            subprocess.run([cmd] + command.split()[1:])
+        else:
+            print(f"{command}: command not found")
 
 
 if __name__ == "__main__":
